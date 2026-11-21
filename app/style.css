@@ -13,7 +13,7 @@ input[type=range] { width: 100%; accent-color: #ff2e88; }
 button { font: inherit; font-weight: 700; padding: 8px 12px; border: 1px solid #5b3a7d; border-radius: 6px; background: #2b1650; color: #f2eef7; cursor: pointer; }
 button.active { background: #ff2e88; border-color: #ff2e88; color: #fff; }
 button.export { background: linear-gradient(90deg, #ff7a18, #ff2e88); border: 0; padding: 12px; font-size: 15px; }
-#panels { display: flex; flex-direction: column; gap: 10px; }
+#panels, #hero-panel { display: flex; flex-direction: column; gap: 10px; }
 .panel-card { border: 1px solid #3b0f4f; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #1a0b33; }
 .panel-head { font-size: 12px; letter-spacing: 1px; color: #ff5da2; }
 .panel-name { font-weight: 800; }

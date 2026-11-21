@@ -1,8 +1,10 @@
-// VICE HEAT Cover Studio: wires the editor. Pick photos (samples or your own
-// uploads), crop and position each of the seven panels, edit the title, subtitle,
-// tagline and quote, pick a grade and an export size, then export a real PNG.
-// A `?shot=` query sets up a fixed scene for a screenshot instead (./shots.js).
-import { drawCover, defaultState, SIZES, GRADES, PANEL_DEFS } from './cover.js';
+// VICE HEAT Cover Studio v2: wires the editor. One hero photo plus three accent
+// panels, each with its own crop and colour grade. Pick photos (samples or your
+// own uploads), crop and position the hero and each panel, edit the title,
+// subtitle, tagline and quote, pick a grade and an export size, then export a
+// real PNG. A `?shot=` query sets up a fixed scene for a screenshot instead
+// (./shots.js).
+import { drawCover, defaultState, SIZES, GRADES, PANEL_DEFS, HERO_DEF } from './cover.js';
 import { runShot } from './shots.js';
 
 const canvas = document.getElementById('cover');
@@ -46,7 +48,7 @@ function photoLabel(key) {
 }
 
 function refreshPhotoOptions() {
-  document.querySelectorAll('.panel-photo').forEach((select) => {
+  document.querySelectorAll('.panel-photo, .hero-photo').forEach((select) => {
     const current = select.value;
     select.innerHTML = '';
     for (const key of photos.keys()) {
@@ -59,16 +61,42 @@ function refreshPhotoOptions() {
   });
 }
 
+function buildHeroEditor() {
+  const host = document.getElementById('hero-panel');
+  const card = document.createElement('div');
+  card.className = 'panel-card';
+  card.innerHTML = `
+    <div class="panel-head"><span class="panel-name">HERO PHOTO</span></div>
+    <label>Photo <select class="hero-photo" data-i="hero"></select></label>
+    <label>Zoom <input class="hero-zoom" data-i="hero" type="range" min="0.8" max="2.5" step="0.05" value="${state.hero.zoom}"></label>
+    <label>Left / right <input class="hero-ox" data-i="hero" type="range" min="-0.3" max="0.3" step="0.01" value="${state.hero.ox}"></label>
+    <label>Up / down <input class="hero-oy" data-i="hero" type="range" min="-0.3" max="0.3" step="0.01" value="${state.hero.oy}"></label>`;
+  host.appendChild(card);
+  host.addEventListener('input', (e) => {
+    const t = e.target;
+    const hero = state.hero;
+    if (t.classList.contains('hero-photo')) hero.photo = t.value;
+    if (t.classList.contains('hero-zoom')) hero.zoom = Number(t.value);
+    if (t.classList.contains('hero-ox')) hero.ox = Number(t.value);
+    if (t.classList.contains('hero-oy')) hero.oy = Number(t.value);
+    redraw();
+  });
+}
+
 function buildPanelEditors() {
   const host = document.getElementById('panels');
   state.panels.forEach((panel, i) => {
     const def = PANEL_DEFS[i];
     const card = document.createElement('div');
     card.className = 'panel-card';
+    const gradeOptions = Object.keys(GRADES)
+      .map((g) => `<option value="${g}"${panel.grade === g ? ' selected' : ''}>${GRADES[g].name}</option>`)
+      .join('');
     card.innerHTML = `
       <div class="panel-head"><span class="panel-name">${def.id.toUpperCase()}</span></div>
       <label>Photo <select class="panel-photo" data-i="${i}"></select></label>
       <label>Role <input class="panel-role" data-i="${i}" type="text" maxlength="16" value="${panel.role}"></label>
+      <label>Colour grade <select class="panel-grade" data-i="${i}">${gradeOptions}</select></label>
       <label>Zoom <input class="panel-zoom" data-i="${i}" type="range" min="0.8" max="2.5" step="0.05" value="${panel.zoom}"></label>
       <label>Left / right <input class="panel-ox" data-i="${i}" type="range" min="-0.3" max="0.3" step="0.01" value="${panel.ox}"></label>
       <label>Up / down <input class="panel-oy" data-i="${i}" type="range" min="-0.3" max="0.3" step="0.01" value="${panel.oy}"></label>`;
@@ -81,6 +109,7 @@ function buildPanelEditors() {
     const panel = state.panels[i];
     if (t.classList.contains('panel-photo')) panel.photo = t.value;
     if (t.classList.contains('panel-role')) panel.role = t.value.toUpperCase();
+    if (t.classList.contains('panel-grade')) panel.grade = t.value;
     if (t.classList.contains('panel-zoom')) panel.zoom = Number(t.value);
     if (t.classList.contains('panel-ox')) panel.ox = Number(t.value);
     if (t.classList.contains('panel-oy')) panel.oy = Number(t.value);
@@ -127,11 +156,11 @@ document.getElementById('photo').addEventListener('change', async (e) => {
     photos.set(key, await loadImage(URL.createObjectURL(file)));
   }
   if (files.length) {
-    // The first upload fills the hero panel right away.
-    state.panels[0].photo = `up${uploadCount - files.length}`;
+    // The first upload fills the hero photo right away.
+    state.hero.photo = `up${uploadCount - files.length}`;
     refreshPhotoOptions();
     redraw();
-    status.textContent = `${files.length} photo${files.length > 1 ? 's' : ''} loaded — hero panel updated.`;
+    status.textContent = `${files.length} photo${files.length > 1 ? 's' : ''} loaded — hero photo updated.`;
   }
 });
 
@@ -156,6 +185,7 @@ bindText('tagline', 'tagline', true);
 bindText('quote', 'quote', true);
 bindSizeButtons();
 bindGradeButtons();
+buildHeroEditor();
 buildPanelEditors();
 
 const shot = new URLSearchParams(location.search).get('shot');

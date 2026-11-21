@@ -1,7 +1,9 @@
-// VICE HEAT cover renderer: draws the multi-panel GTA-style poster onto a canvas.
-// One hero close-up up top, six smaller panels around it, a big retro-gradient title
-// with chrome stripes, a pink neon script subtitle, a tagline ribbon, and a bottom
-// bar with COMING SOON, billing, barcode and a gold seal. All original art.
+// VICE HEAT cover renderer v2: ONE HERO, ONE POSTER.
+// A single dominant full-bleed hero photo takes the top of the cover, the big
+// retro-gradient title and pink neon subtitle sit ON the photo, and only three
+// small accent panels run in a strip below it — each a different crop with its
+// own colour grade, so they read as three different photos, not one photo
+// chopped up. All original art.
 
 export const SIZES = {
   '1080x1080': { w: 1080, h: 1080, label: 'Square 1080 x 1080' },
@@ -30,16 +32,15 @@ export const GRADES = {
   },
 };
 
-// The seven panels: one hero plus six around it. Each has a default sample photo,
-// a zoom and a crop offset so the two samples read differently in every panel.
+// The hero: one dominant photo, full-bleed across the top of the cover.
+export const HERO_DEF = { photo: 'pier', zoom: 1.05, ox: 0, oy: 0.1 };
+
+// The three accent panels below the hero. Each is a different crop of a sample
+// photo AND its own colour grade, so the strip reads as three different shots.
 export const PANEL_DEFS = [
-  { id: 'hero', role: 'THE DRIVER', photo: 'pier', zoom: 1.15, ox: 0, oy: -0.05 },
-  { id: 'left-top', role: 'THE BOSS', photo: 'boulevard', zoom: 1.45, ox: -0.12, oy: 0 },
-  { id: 'left-bottom', role: 'THE FIXER', photo: 'pier', zoom: 1.55, ox: 0.1, oy: 0.08 },
-  { id: 'right-top', role: 'THE QUEEN', photo: 'pier', zoom: 1.45, ox: 0.12, oy: -0.05 },
-  { id: 'right-bottom', role: 'THE LOOKOUT', photo: 'boulevard', zoom: 1.55, ox: -0.1, oy: 0.05 },
-  { id: 'bottom-left', role: 'THE GETAWAY', photo: 'boulevard', zoom: 1.3, ox: 0, oy: 0.1 },
-  { id: 'bottom-right', role: 'THE BRAINS', photo: 'pier', zoom: 1.3, ox: 0, oy: -0.08 },
+  { id: 'strip-left', role: 'THE DRIVER', photo: 'pier', zoom: 1.7, ox: 0.12, oy: 0.06, grade: 'sunset' },
+  { id: 'strip-mid', role: 'THE BOSS', photo: 'boulevard', zoom: 1.55, ox: -0.1, oy: 0.08, grade: 'neon' },
+  { id: 'strip-right', role: 'THE GETAWAY', photo: 'pier', zoom: 1.8, ox: -0.14, oy: 0.1, grade: 'gold' },
 ];
 
 export function defaultState() {
@@ -51,6 +52,7 @@ export function defaultState() {
     quote: 'THE HOTTEST RIDE OF THE YEAR',
     press: 'VICE HEAT GAZETTE',
     grade: 'sunset',
+    hero: { ...HERO_DEF },
     panels: PANEL_DEFS.map((p) => ({ ...p })),
   };
 }
@@ -61,17 +63,14 @@ function layout(w, h) {
   const F = (x, y, pw, ph) => ({ x: x * w, y: y * h, w: pw * w, h: ph * h });
   return {
     topBar: F(0, 0, 1, 0.052),
-    hero: F(0.31, 0.058, 0.38, 0.44),
-    leftTop: F(0.014, 0.058, 0.282, 0.214),
-    leftBottom: F(0.014, 0.284, 0.282, 0.214),
-    rightTop: F(0.704, 0.058, 0.282, 0.214),
-    rightBottom: F(0.704, 0.284, 0.282, 0.214),
-    title: F(0, 0.505, 1, 0.105),
-    subtitle: F(0, 0.612, 1, 0.05),
-    tagline: F(0.08, 0.668, 0.84, 0.038),
-    bottomLeft: F(0.014, 0.716, 0.48, 0.178),
-    bottomRight: F(0.506, 0.716, 0.48, 0.178),
-    bottomBar: F(0, 0.902, 1, 0.098),
+    hero: F(0, 0, 1, 0.62),
+    title: F(0, 0.425, 1, 0.11),
+    subtitle: F(0, 0.535, 1, 0.055),
+    stripLeft: F(0.014, 0.635, 0.315, 0.155),
+    stripMid: F(0.3425, 0.635, 0.315, 0.155),
+    stripRight: F(0.671, 0.635, 0.315, 0.155),
+    tagline: F(0.08, 0.805, 0.84, 0.04),
+    bottomBar: F(0, 0.86, 1, 0.14),
   };
 }
 
@@ -100,27 +99,32 @@ function fitText(ctx, text, maxW, startSize, weight = 'bold') {
   return size;
 }
 
+function drawPhotoCover(ctx, rect, photo, zoom, ox, oy) {
+  const { x, y, w, h } = rect;
+  if (!photo) return false;
+  const scale = Math.max(w / photo.naturalWidth, h / photo.naturalHeight) * zoom;
+  const dw = photo.naturalWidth * scale;
+  const dh = photo.naturalHeight * scale;
+  const dx = x + (w - dw) / 2 + ox * w;
+  const dy = y + (h - dh) / 2 + oy * h;
+  ctx.drawImage(photo, dx, dy, dw, dh);
+  return true;
+}
+
 function drawPanel(ctx, rect, photo, panel, grade) {
   const { x, y, w, h } = rect;
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, w, h);
   ctx.clip();
-  if (photo) {
-    const scale = Math.max(w / photo.naturalWidth, h / photo.naturalHeight) * panel.zoom;
-    const dw = photo.naturalWidth * scale;
-    const dh = photo.naturalHeight * scale;
-    const dx = x + (w - dw) / 2 + panel.ox * w;
-    const dy = y + (h - dh) / 2 + panel.oy * h;
-    ctx.drawImage(photo, dx, dy, dw, dh);
-  } else {
+  if (!drawPhotoCover(ctx, rect, photo, panel.zoom, panel.ox, panel.oy)) {
     const g = ctx.createLinearGradient(x, y, x, y + h);
     g.addColorStop(0, '#3b0f4f');
     g.addColorStop(1, '#160a2e');
     ctx.fillStyle = g;
     ctx.fillRect(x, y, w, h);
   }
-  // Warm sunset grade over the photo.
+  // The panel's own colour grade, so each strip panel looks like a different shot.
   const tint = ctx.createLinearGradient(x, y, x, y + h);
   tint.addColorStop(0, grade.overlayTop);
   tint.addColorStop(1, grade.overlayBottom);
@@ -133,23 +137,23 @@ function drawPanel(ctx, rect, photo, panel, grade) {
   ctx.fillStyle = vg;
   ctx.fillRect(x, y, w, h);
   ctx.restore();
-  // Frame.
-  ctx.lineWidth = panel.id === 'hero' ? 5 : 3;
-  ctx.strokeStyle = panel.id === 'hero' ? '#ffd23f' : '#0d0716';
+  // Frame: dark edge with a thin gold inner line.
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#0d0716';
   ctx.strokeRect(x, y, w, h);
   ctx.lineWidth = 1;
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.strokeStyle = 'rgba(255,210,63,0.6)';
   ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
   // Angled role label at the panel's foot.
   const label = panel.role || '';
   if (label) {
-    const fs = Math.max(12, Math.min(w * 0.085, h * 0.16));
+    const fs = Math.max(12, Math.min(w * 0.08, h * 0.17));
     ctx.save();
     ctx.font = `bold ${fs}px system-ui, sans-serif`;
     const tw = ctx.measureText(label).width;
     const bw = tw + fs * 1.1;
     const bh = fs * 1.7;
-    ctx.translate(x + 6, y + h - bh - 8);
+    ctx.translate(x + 6, y + h - bh - 7);
     ctx.rotate(-0.07);
     ctx.fillStyle = 'rgba(10,5,18,0.92)';
     ctx.fillRect(0, 0, bw, bh);
@@ -224,36 +228,62 @@ export function drawCover(canvas, state, photos) {
   const grade = GRADES[state.grade] || GRADES.sunset;
   const L = layout(w, h);
 
-  // Backdrop: deep violet night with a warm glow behind the hero.
+  // Backdrop: deep violet night, visible in the gaps between bands.
   const bg = ctx.createLinearGradient(0, 0, 0, h);
   bg.addColorStop(0, '#160a2e');
   bg.addColorStop(0.5, '#3b0f4f');
   bg.addColorStop(1, '#12081f');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
-  const glow = ctx.createRadialGradient(w / 2, h * 0.28, 10, w / 2, h * 0.28, w * 0.45);
-  glow.addColorStop(0, 'rgba(255,122,24,0.35)');
-  glow.addColorStop(1, 'rgba(255,122,24,0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, w, h);
 
-  // Panels.
+  // HERO: one dominant full-bleed photo across the top of the cover.
+  const hero = L.hero;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(hero.x, hero.y, hero.w, hero.h);
+  ctx.clip();
+  if (!drawPhotoCover(ctx, hero, photos.get(state.hero.photo) || null, state.hero.zoom, state.hero.ox, state.hero.oy)) {
+    const g = ctx.createLinearGradient(hero.x, hero.y, hero.x, hero.y + hero.h);
+    g.addColorStop(0, '#3b0f4f');
+    g.addColorStop(1, '#160a2e');
+    ctx.fillStyle = g;
+    ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
+  }
+  // Warm grade over the hero.
+  const tint = ctx.createLinearGradient(hero.x, hero.y, hero.x, hero.y + hero.h);
+  tint.addColorStop(0, grade.overlayTop);
+  tint.addColorStop(1, grade.overlayBottom);
+  ctx.fillStyle = tint;
+  ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
+  // Legibility gradients: dark at the top (under the top bar) and darker at
+  // the bottom (under the title and subtitle) so the text reads on any photo.
+  const topShade = ctx.createLinearGradient(hero.x, hero.y, hero.x, hero.y + hero.h * 0.18);
+  topShade.addColorStop(0, 'rgba(10,5,18,0.55)');
+  topShade.addColorStop(1, 'rgba(10,5,18,0)');
+  ctx.fillStyle = topShade;
+  ctx.fillRect(hero.x, hero.y, hero.w, hero.h * 0.18);
+  const botShade = ctx.createLinearGradient(hero.x, hero.y + hero.h * 0.34, hero.x, hero.y + hero.h);
+  botShade.addColorStop(0, 'rgba(10,5,18,0)');
+  botShade.addColorStop(1, 'rgba(10,5,18,0.88)');
+  ctx.fillStyle = botShade;
+  ctx.fillRect(hero.x, hero.y + hero.h * 0.34, hero.w, hero.h * 0.66);
+  ctx.restore();
+
+  // Three accent panels in a strip below the hero, each with its own grade.
   const rects = {
-    hero: L.hero,
-    'left-top': L.leftTop,
-    'left-bottom': L.leftBottom,
-    'right-top': L.rightTop,
-    'right-bottom': L.rightBottom,
-    'bottom-left': L.bottomLeft,
-    'bottom-right': L.bottomRight,
+    'strip-left': L.stripLeft,
+    'strip-mid': L.stripMid,
+    'strip-right': L.stripRight,
   };
   for (const panel of state.panels) {
-    drawPanel(ctx, rects[panel.id], photos.get(panel.photo) || null, panel, grade);
+    const pg = GRADES[panel.grade] || grade;
+    drawPanel(ctx, rects[panel.id], photos.get(panel.photo) || null, panel, pg);
   }
 
   // Top bar: five gold stars, press quote, publication + VOL. 1 badge.
+  // Semi-transparent so the hero photo shows through faintly behind it.
   const tb = L.topBar;
-  ctx.fillStyle = '#0d0716';
+  ctx.fillStyle = 'rgba(13,7,22,0.88)';
   ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
   const starR = tb.h * 0.32;
   for (let i = 0; i < 5; i++) {
@@ -281,10 +311,10 @@ export function drawCover(canvas, state, photos) {
   ctx.fillText('VOL. 1', w - w * 0.0575, tb.y + tb.h / 2 + 1);
   ctx.textAlign = 'left';
 
-  // Big retro-gradient title with chrome stripes.
+  // Big retro-gradient title with chrome stripes, sitting ON the hero photo.
   drawTitle(ctx, L.title, (state.title || 'VICE HEAT').toUpperCase(), grade.title);
 
-  // Pink neon script subtitle.
+  // Pink neon script subtitle, also on the hero photo.
   const sub = L.subtitle;
   const subSize = fitText(ctx, state.subtitle, w * 0.8, sub.h * 0.72, 'italic 700');
   ctx.font = `italic 700 ${subSize}px 'Segoe Script', 'Brush Script MT', cursive, sans-serif`;
@@ -317,13 +347,13 @@ export function drawCover(canvas, state, photos) {
   const bb = L.bottomBar;
   ctx.fillStyle = '#0d0716';
   ctx.fillRect(bb.x, bb.y, bb.w, bb.h);
-  const csSize = fitText(ctx, 'COMING SOON', w * 0.2, bb.h * 0.42);
+  const csSize = fitText(ctx, 'COMING SOON', w * 0.2, bb.h * 0.32);
   ctx.font = `900 ${csSize}px system-ui, sans-serif`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText('COMING SOON', w * 0.02, bb.y + bb.h / 2 + 1);
-  ctx.font = `${Math.max(9, bb.h * 0.13)}px system-ui, sans-serif`;
+  ctx.font = `${Math.max(9, bb.h * 0.11)}px system-ui, sans-serif`;
   ctx.fillStyle = '#9a93a8';
   ctx.textAlign = 'center';
   ctx.fillText('VICE HEAT STUDIO  \u00b7  A COVER MADE WITH YOUR OWN PHOTOS', w * 0.45, bb.y + bb.h * 0.32);

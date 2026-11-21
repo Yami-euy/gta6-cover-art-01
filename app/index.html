@@ -10,7 +10,7 @@
 <main class="app">
   <section class="controls">
     <h1>VICE HEAT</h1>
-    <p class="sub">Cover Studio — your photo, seven panels, one sunset poster.</p>
+    <p class="sub">Cover Studio — one hero photo, three accent panels, one sunset poster.</p>
 
     <label>Your photos <input id="photo" type="file" accept="image/*" multiple></label>
     <p class="hint">Uploads stay on your machine. No photo? The two samples below are already loaded.</p>
@@ -39,7 +39,12 @@
     </div>
 
     <div class="group">
-      <span class="group-label">Panels — photo, role, crop</span>
+      <span class="group-label">Hero photo — the big one on top</span>
+      <div id="hero-panel"></div>
+    </div>
+
+    <div class="group">
+      <span class="group-label">Accent panels — photo, role, grade, crop</span>
       <div id="panels"></div>
     </div>
 
